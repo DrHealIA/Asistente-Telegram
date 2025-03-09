@@ -568,13 +568,13 @@ class CoachBot:
             return None
 
     async def verify_email(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat.id
-    user_email = update.message.text.strip().lower()
+        chat_id = update.message.chat.id
+        user_email = update.message.text.strip().lower()
     # Extraemos de forma automática el usuario de Telegram y el nombre completo
-    telegram_username = update.message.from_user.username or "Unknown"
-    nombre_completo = ((update.message.from_user.first_name or "") + " " + (update.message.from_user.last_name or "")).strip()
+        telegram_username = update.message.from_user.username or "Unknown"
+        nombre_completo = ((update.message.from_user.first_name or "") + " " + (update.message.from_user.last_name or "")).strip()
     # Si no se obtuvo nombre completo, usamos el username
-    nombre_completo = nombre_completo if nombre_completo else telegram_username
+        nombre_completo = nombre_completo if nombre_completo else telegram_username
 
     if "@" not in user_email or "." not in user_email:
         await update.message.reply_text("❌ Por favor, proporciona un email válido.")
