@@ -313,7 +313,7 @@ class CoachBot:
             return "⚠️ Ocurrió un error al buscar productos. Por favor, intenta más tarde."
 
     async def fetch_products(self, query):
-        url = "https://script.google.com/macros/s/AKfycbyWMM_SPgBtqhuChU22--dH2bHmezudI2DqdGMOa5mEoGh8Pp0tnlJ6jA3035BqXfAacg/exec"
+        url = "https://script.google.com/macros/s/AKfycbxQsAnvS-ews4ilDkNATQf9oS3HSopja9Ctv-CbZFYcxomc9r0Zi6Ihq4xqNaTynakAXQ/exec"
         params = {"query": query}
         logger.info(f"Consultando Google Sheets con: {params}")
         try:
@@ -593,7 +593,7 @@ class CoachBot:
         Se asume que la API espera un parámetro 'email' y devuelve JSON en el formato:
         { "whitelisted": true } o { "whitelisted": false }
         """
-        url = "https://script.google.com/macros/s/AKfycbzltY7RWOqzGxhhdIfsBNqt1HB6cnTaqNfd-fxwey2OpGmz71N8fmUemqA2Y9pWg8iLBQ/exec"
+        url = "https://script.google.com/macros/s/AKfycbxQsAnvS-ews4ilDkNATQf9oS3HSopja9Ctv-CbZFYcxomc9r0Zi6Ihq4xqNaTynakAXQ/exec"
         params = {"email": email}
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
