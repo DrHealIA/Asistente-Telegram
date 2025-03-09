@@ -570,17 +570,17 @@ class CoachBot:
     async def verify_email(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.message.chat.id
         user_email = update.message.text.strip().lower()
-    # Extraemos de forma automática el usuario de Telegram y el nombre completo
+        # Extraemos de forma automática el usuario de Telegram y el nombre completo
         telegram_username = update.message.from_user.username or "Unknown"
         nombre_completo = ((update.message.from_user.first_name or "") + " " + (update.message.from_user.last_name or "")).strip()
-    # Si no se obtuvo nombre completo, usamos el username
+        # Si no se obtuvo nombre completo, usamos el username
         nombre_completo = nombre_completo if nombre_completo else telegram_username
 
-    if "@" not in user_email or "." not in user_email:
+        if "@" not in user_email or "." not in user_email:
         await update.message.reply_text("❌ Por favor, proporciona un email válido.")
         return
 
-    try:
+        try:
         # Enviamos automáticamente el email, username y nombre completo al endpoint
         if not (await self.is_user_whitelisted(user_email, telegram_username, nombre_completo)):
             await update.message.reply_text("❌ Tu email no está en la lista autorizada. Contacta a soporte.")
@@ -590,7 +590,7 @@ class CoachBot:
         self.verified_users[chat_id] = user_email
         self.save_verified_user(chat_id, user_email, telegram_username)
         await update.message.reply_text("✅ Email validado. Ahora puedes hablar conmigo.")
-    except Exception as e:
+        except Exception as e:
         logger.error("❌ Error verificando email para " + str(chat_id) + ": " + str(e))
         await update.message.reply_text("⚠️ Ocurrió un error verificando tu email.")
 
