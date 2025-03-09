@@ -10,8 +10,6 @@ from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 from openai import AsyncOpenAI
 import speech_recognition as sr
 import requests
@@ -72,11 +70,11 @@ class CoachBot:
         self.TELEGRAM_TOKEN = required_env_vars['TELEGRAM_TOKEN']
         self.SPREADSHEET_ID = required_env_vars['SPREADSHEET_ID']
         self.assistant_id = required_env_vars['ASSISTANT_ID']
-        self.credentials_path = '/etc/secrets/credentials.json'
 
         # Inicializar cliente AsyncOpenAI
         self.client = AsyncOpenAI(api_key=required_env_vars['OPENAI_API_KEY'])
-        self.sheets_service = None
+        # Se elimina la inicialización de Sheets con credenciales
+
         self.started = False
         self.verified_users = {}
         self.conversation_history = {}
@@ -100,7 +98,6 @@ class CoachBot:
 
         self._init_db()
         self.setup_handlers()
-        self._init_sheets()
         self._load_user_preferences()
 
     def _init_db(self):
@@ -458,29 +455,6 @@ class CoachBot:
             ''', (chat_id, role, content))
             conn.commit()
 
-    def _init_sheets(self):
-        try:
-            if not os.path.exists(self.credentials_path):
-                logger.error(f"Archivo de credenciales no encontrado en: {self.credentials_path}")
-                return False
-            credentials = service_account.Credentials.from_service_account_file(
-                self.credentials_path,
-                scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
-            )
-            self.sheets_service = build('sheets', 'v4', credentials=credentials)
-            try:
-                self.sheets_service.spreadsheets().get(
-                    spreadsheetId=self.SPREADSHEET_ID
-                ).execute()
-                logger.info("Conexión con Google Sheets inicializada correctamente.")
-                return True
-            except Exception as e:
-                logger.error(f"Error accediendo al spreadsheet: {e}")
-                return False
-        except Exception as e:
-            logger.error(f"Error inicializando Google Sheets: {e}")
-            return False
-
     async def async_init(self):
         try:
             await self.telegram_app.initialize()
@@ -614,14 +588,21 @@ class CoachBot:
             await update.message.reply_text("⚠️ Ocurrió un error verificando tu email.")
 
     async def is_user_whitelisted(self, email: str) -> bool:
+        """
+        Valida si el email está en la whitelist consultando directamente el endpoint web.
+        Se asume que la API espera un parámetro 'email' y devuelve JSON en el formato:
+        { "whitelisted": true } o { "whitelisted": false }
+        """
+        url = "https://script.google.com/macros/s/AKfycbzltY7RWOqzGxhhdIfsBNqt1HB6cnTaqNfd-fxwey2OpGmz71N8fmUemqA2Y9pWg8iLBQ/exec"
+        params = {"email": email}
         try:
-            result = self.sheets_service.spreadsheets().values().get(
-                spreadsheetId=self.SPREADSHEET_ID,
-                range='Usuarios!A:A'
-            ).execute()
-            values = result.get('values', [])
-            whitelist = [row[0].lower() for row in values if row]
-            return email.lower() in whitelist
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(url, params=params, follow_redirects=True)
+            if response.status_code != 200:
+                logger.error(f"Error al consultar la whitelist: {response.status_code}, {response.text}")
+                return False
+            result = response.json()
+            return result.get("whitelisted", False)
         except Exception as e:
             logger.error("Error verificando whitelist: " + str(e))
             return False
