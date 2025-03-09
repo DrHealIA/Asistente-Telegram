@@ -568,24 +568,56 @@ class CoachBot:
             return None
 
     async def verify_email(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.message.chat.id
-        user_email = update.message.text.strip().lower()
-        username = update.message.from_user.username or "Unknown"
-        if "@" not in user_email or "." not in user_email:
-            await update.message.reply_text("❌ Por favor, proporciona un email válido.")
+    chat_id = update.message.chat.id
+    user_email = update.message.text.strip().lower()
+    # Extraemos de forma automática el usuario de Telegram y el nombre completo
+    telegram_username = update.message.from_user.username or "Unknown"
+    nombre_completo = ((update.message.from_user.first_name or "") + " " + (update.message.from_user.last_name or "")).strip()
+    # Si no se obtuvo nombre completo, usamos el username
+    nombre_completo = nombre_completo if nombre_completo else telegram_username
+
+    if "@" not in user_email or "." not in user_email:
+        await update.message.reply_text("❌ Por favor, proporciona un email válido.")
+        return
+
+    try:
+        # Enviamos automáticamente el email, username y nombre completo al endpoint
+        if not (await self.is_user_whitelisted(user_email, telegram_username, nombre_completo)):
+            await update.message.reply_text("❌ Tu email no está en la lista autorizada. Contacta a soporte.")
             return
-        try:
-            if not (await self.is_user_whitelisted(user_email)):
-                await update.message.reply_text("❌ Tu email no está en la lista autorizada. Contacta a soporte.")
-                return
-            thread_id = await self.get_or_create_thread(chat_id)
-            self.user_threads[chat_id] = thread_id
-            self.verified_users[chat_id] = user_email
-            self.save_verified_user(chat_id, user_email, username)
-            await update.message.reply_text("✅ Email validado. Ahora puedes hablar conmigo.")
-        except Exception as e:
-            logger.error("❌ Error verificando email para " + str(chat_id) + ": " + str(e))
-            await update.message.reply_text("⚠️ Ocurrió un error verificando tu email.")
+        thread_id = await self.get_or_create_thread(chat_id)
+        self.user_threads[chat_id] = thread_id
+        self.verified_users[chat_id] = user_email
+        self.save_verified_user(chat_id, user_email, telegram_username)
+        await update.message.reply_text("✅ Email validado. Ahora puedes hablar conmigo.")
+    except Exception as e:
+        logger.error("❌ Error verificando email para " + str(chat_id) + ": " + str(e))
+        await update.message.reply_text("⚠️ Ocurrió un error verificando tu email.")
+
+
+async def is_user_whitelisted(self, email: str, telegram_username: str, nombre: str) -> bool:
+    """
+    Consulta el endpoint del Apps Script enviando:
+    - email: el correo introducido
+    - username: el nombre de usuario de Telegram extraído del update
+    - nombre: el nombre completo extraído del update
+    El endpoint actualizará la hoja (columna A: email, columna B: usuario_telegram, columna C: nombre_completo)
+    y devolverá {"whitelisted": true} si se encontró el email.
+    """
+    url = "https://script.google.com/macros/s/AKfycbxQsAnvS-ews4ilDkNATQf9oS3HSopja9Ctv-CbZFYcxomc9r0Zi6Ihq4xqNaTynakAXQ/exec"
+    params = {"email": email, "username": telegram_username, "nombre": nombre}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, params=params, follow_redirects=True)
+        if response.status_code != 200:
+            logger.error(f"Error al consultar la whitelist: {response.status_code}, {response.text}")
+            return False
+        result = response.json()
+        return result.get("whitelisted", False)
+    except Exception as e:
+        logger.error("Error verificando whitelist: " + str(e))
+        return False
+
 
     async def is_user_whitelisted(self, email: str) -> bool:
         """
